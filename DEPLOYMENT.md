@@ -1,6 +1,6 @@
 # Deployment
 
-HandWave is a source-run desktop app. It does not require a server, database, account, or network connection after installation.
+Music HandControl is a source-run desktop app. It does not require a server, database, account, or network connection after installation.
 
 The optional YouTube import feature requires network access while a requested video is being retrieved. MP3 playback, local file import, gestures, and all other features remain local.
 
@@ -39,7 +39,7 @@ Only obtain this binary from Google's official MediaPipe model storage linked by
 
 The entry point creates `music/`, `assets/`, and `logs/`, loads or defaults `settings.json`, scans direct MP3 children, initializes audio, opens the window, and then enumerates a bounded set of camera indexes.
 
-If camera or audio setup fails, the interface remains open and displays a user-facing error. Technical detail is retained in `logs/handwave.log`.
+If camera or audio setup fails, the interface remains open and displays a user-facing error. Technical detail is retained in `logs/music-handcontrol.log`.
 
 `imageio-ffmpeg` supplies the FFmpeg executable used by YouTube-to-MP3 conversion, so a separate system FFmpeg install is not required. yt-dlp and YouTube change frequently; if downloads begin failing, validate a newer pinned yt-dlp release in a fresh environment before updating `requirements.txt`.
 

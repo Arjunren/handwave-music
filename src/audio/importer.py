@@ -163,7 +163,7 @@ class MusicImporter(QObject):
         )
         if runtime is None:
             raise RuntimeError(
-                "YouTube import requires Node.js, Deno, Bun, or QuickJS. Install Node.js and restart HandWave."
+                "YouTube import requires Node.js, Deno, Bun, or QuickJS. Install Node.js and restart Music HandControl."
             )
         runtime_name, runtime_path = runtime
         before = {path.resolve() for path in root.glob("*.mp3")}

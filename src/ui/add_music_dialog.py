@@ -47,7 +47,9 @@ class AddMusicDialog(QDialog):
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(14, 18, 14, 14)
         layout.setSpacing(14)
-        message = QLabel("Choose one or more MP3 files. HandWave copies them safely into the /music folder.")
+        message = QLabel(
+            "Choose one or more MP3 files. Music HandControl copies them safely into the /music folder."
+        )
         message.setWordWrap(True)
         message.setObjectName("Muted")
         layout.addWidget(message)

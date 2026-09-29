@@ -20,7 +20,7 @@ from src.config.settings import AppSettings
 class SettingsDialog(QDialog):
     def __init__(self, settings: AppSettings, cameras: list[int], parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("HandWave Settings")
+        self.setWindowTitle("Music HandControl Settings")
         self.setMinimumWidth(430)
         self.result_settings = replace(settings)
         layout = QVBoxLayout(self)

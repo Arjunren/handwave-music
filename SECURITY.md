@@ -2,7 +2,7 @@
 
 ## Scope and trust boundaries
 
-HandWave is a local desktop application. Its untrusted inputs are MP3 files and their metadata, album images, camera frames, settings JSON, YouTube responses, device behavior, and native dependencies. It has no web listener, account system, remote API, or telemetry.
+Music HandControl is a local desktop application. Its untrusted inputs are MP3 files and their metadata, album images, camera frames, settings JSON, YouTube responses, device behavior, and native dependencies. It has no web listener, account system, remote API, or telemetry.
 
 ## Implemented controls
 

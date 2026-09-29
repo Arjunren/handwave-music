@@ -63,7 +63,7 @@ class MainWindow(QMainWindow):
         self.importer = MusicImporter(project_root / "music")
         self._seeking = False
         self._available_cameras = [settings.camera_index]
-        self.setWindowTitle("HandWave Music")
+        self.setWindowTitle("Music HandControl")
         self.resize(1360, 860)
         self.setMinimumSize(1100, 720)
         self._build_ui()
@@ -93,9 +93,9 @@ class MainWindow(QMainWindow):
         top.setObjectName("TopBar")
         top_layout = QHBoxLayout(top)
         top_layout.setContentsMargins(2, 0, 2, 0)
-        brand = QLabel("HANDWAVE  MUSIC")
+        brand = QLabel("MUSIC  HANDCONTROL")
         brand.setObjectName("Brand")
-        subtitle = QLabel("Gesture-powered listening")
+        subtitle = QLabel("Gesture-powered listening · Arjunrenvon")
         subtitle.setObjectName("Muted")
         brand_column = QVBoxLayout()
         brand_column.setSpacing(0)
@@ -549,7 +549,7 @@ class MainWindow(QMainWindow):
             self.camera_view.set_message("Hand control is off\nMusic and mouse controls remain available")
 
     def _show_error(self, message: str) -> None:
-        QMessageBox.warning(self, "HandWave Music", message)
+        QMessageBox.warning(self, "Music HandControl", message)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
         key = event.key()
@@ -571,7 +571,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(
                 self,
                 "Music Import in Progress",
-                "Please wait for the current music import to finish before closing HandWave.",
+                "Please wait for the current music import to finish before closing Music HandControl.",
             )
             event.ignore()
             return

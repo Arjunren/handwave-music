@@ -1,6 +1,6 @@
-# HandWave Music
+# Music HandControl
 
-HandWave Music is a polished desktop MP3 player controlled by hand gestures, mouse, or keyboard. It combines a responsive PySide6 interface, MediaPipe hand tracking, pygame-ce playback, embedded metadata/artwork, and three playback-synchronized visualizer modes.
+Music HandControl is a polished desktop MP3 player controlled by hand gestures, mouse, or keyboard. It combines a responsive PySide6 interface, MediaPipe hand tracking, pygame-ce playback, embedded metadata/artwork, and three playback-synchronized visualizer modes.
 
 > The app is local-first: it does not upload camera frames, music, metadata, or settings.
 
@@ -8,7 +8,7 @@ HandWave Music is a polished desktop MP3 player controlled by hand gestures, mou
 
 - Open-palm hold for play/pause with state locking so a raised hand does not trigger accidentally
 - Right thumb–index pinch for next and left thumb–index pinch for previous
-- Explicit volume mode with smoothed thumb–index distance and double-pinch save
+- Easy volume mode: hold a peace sign, move your hand vertically, then hold a fist to save
 - Add local MP3 files or download and convert one YouTube video with an optional filename
 - Threaded webcam capture and hand analysis, keeping the interface responsive
 - Spectrum, wave, and circular visualizers with rise/fall interpolation
@@ -23,7 +23,7 @@ HandWave Music is a polished desktop MP3 player controlled by hand gestures, mou
 
 <!-- Replace this placeholder after capturing the app on your system. -->
 
-![HandWave Music interface placeholder](docs/screenshot-placeholder.svg)
+![Music HandControl interface placeholder](docs/screenshot-placeholder.svg)
 
 ## Requirements
 
@@ -48,7 +48,7 @@ On macOS/Linux, activate the environment with `source .venv/bin/activate`.
 
 Click **＋ Add** above the playlist and choose either:
 
-- **From Files** — select one or more `.mp3` files. HandWave copies them into `music/` without overwriting an existing track.
+- **From Files** — select one or more `.mp3` files. Music HandControl copies them into `music/` without overwriting an existing track.
 - **From YouTube** — paste a `youtube.com` or `youtu.be` video link, optionally enter the desired MP3 filename, then select **Download and Convert to MP3**. Leave the filename blank to use the video title.
 
 The download and FFmpeg conversion run in the background. The playlist refreshes as soon as the operation completes. Download only content you own or have permission to use; availability and permitted use vary by video and region.
@@ -78,13 +78,45 @@ Keep one primary hand clearly visible and roughly face the palm toward the camer
 | Open palm held for 0.85 seconds | Play / pause | Fires once; reset by changing the gesture |
 | Right thumb + index pinch | Next song | Fires once per pinch |
 | Left thumb + index pinch | Previous song | Fires once per pinch |
-| Thumb + middle pinch once | Enter volume mode | Works with either hand |
-| Thumb + index distance in volume mode | Adjust volume | Continuous, smoothed 0–100% mapping |
-| Thumb + middle double pinch | Save volume and exit | Two distinct pinches within 0.58 seconds |
+| Peace sign held for 0.55 seconds | Enter volume mode | Works with either hand |
+| Move the active hand up or down | Raise or lower volume | Continuous, smoothed 0–100% mapping |
+| Closed fist held for 0.65 seconds | Save volume and exit | The current volume freezes as soon as the fist is seen |
 
-For Next or Previous, raise the intended hand and make one clear thumb–index pinch. Volume mode deliberately separates adjustment from track changes: enter it with one thumb–middle pinch, adjust using thumb–index distance, then make a double thumb–middle pinch to save and return to normal controls.
+For Next or Previous, raise the intended hand and make one clear thumb–index pinch. Volume mode deliberately separates adjustment from track changes: hold a peace sign to enter, move the tracked hand vertically to adjust, then hold a closed fist to save and return to normal controls.
 
-With multiple hands, HandWave selects the hand matching **Control Hand** when configured; in Auto mode it uses the best-confidence hand, with palm size as the tie breaker. Tune sensitivity and cooldown in Settings if lighting or camera placement causes unreliable detection.
+With multiple hands, Music HandControl selects the hand matching **Control Hand** when configured; in Auto mode it uses the best-confidence hand, with palm size as the tie breaker. Tune sensitivity and cooldown in Settings if lighting or camera placement causes unreliable detection.
+
+## Gesture tutorial
+
+Keep your full hand inside the camera view, face your palm roughly toward the camera, and wait for the gesture label before changing poses.
+
+### Play or pause
+
+1. Raise either hand with all fingers open.
+2. Hold the open palm steady for about one second.
+3. Lower or change your hand before using the gesture again.
+
+### Next song
+
+1. Raise your **right hand**.
+2. Touch your right index fingertip and thumb together once.
+3. Separate them before making another Next gesture.
+
+### Previous song
+
+1. Raise your **left hand**.
+2. Touch your left index fingertip and thumb together once.
+3. Separate them before making another Previous gesture.
+
+### Change and save the volume
+
+1. With either hand, raise only your index and middle fingers to make a peace sign.
+2. Hold the peace sign until **Volume Mode On** appears.
+3. Move the tracked hand upward for louder audio or downward for quieter audio. You may relax and open your hand while moving it.
+4. When the displayed percentage is right, close the same hand into a fist. The volume freezes immediately, so closing the fist will not decrease it.
+5. Hold the fist briefly until **Volume Saved** appears, then reopen or lower your hand.
+
+For the most reliable control, use even front lighting, keep one hand closer to the camera than the other, and avoid letting fingertips leave the frame.
 
 ## Keyboard controls
 
@@ -155,7 +187,7 @@ Close other apps using the webcam, confirm camera permission for desktop apps, c
 
 ### Audio device unavailable
 
-Connect or enable an output device before launch. Check `logs/handwave.log` for backend details. Corrupt tracks are skipped or reported without terminating the app.
+Connect or enable an output device before launch. Check `logs/music-handcontrol.log` for backend details. Corrupt tracks are skipped or reported without terminating the app.
 
 ### Gestures fire too easily or not at all
 
@@ -189,6 +221,10 @@ Hardware integration checks (camera, actual MP3 playback, gestures in varied lig
 - [Deployment](DEPLOYMENT.md)
 - [Security](SECURITY.md)
 
+## Credits
+
+Music HandControl was created for and is credited to **Arjunrenvon**.
+
 ## License
 
-MIT © 2026 Arjunren
+MIT © 2026 Arjunrenvon
