@@ -461,6 +461,10 @@ class MainWindow(QMainWindow):
         self._set_visualizer_mode(self.settings.visualizer_mode)
         if restart_camera:
             self._start_camera()
+        elif not self.settings.hand_tracking:
+            self.camera.stop()
+            self.camera_status.setText("Off")
+            self.camera_view.set_message("Hand control is off\nMusic and mouse controls remain available")
 
     def _show_error(self, message: str) -> None:
         QMessageBox.warning(self, "HandWave Music", message)

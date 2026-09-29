@@ -31,6 +31,10 @@ class SettingsDialog(QDialog):
         form = QFormLayout()
         form.setVerticalSpacing(17)
         form.setHorizontalSpacing(20)
+        self.hand_tracking = QComboBox()
+        self.hand_tracking.addItems(["On", "Off"])
+        self.hand_tracking.setCurrentText("On" if settings.hand_tracking else "Off")
+        form.addRow("Hand tracking", self.hand_tracking)
         self.camera = QComboBox()
         camera_values = cameras or [settings.camera_index]
         self.camera.addItems([f"Camera {value}" for value in camera_values])
@@ -71,6 +75,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(buttons)
 
     def _accept(self) -> None:
+        self.result_settings.hand_tracking = self.hand_tracking.currentText() == "On"
         self.result_settings.camera_index = int(self.camera.currentText().split()[-1])
         self.result_settings.gesture_sensitivity = self.sensitivity.currentText()
         self.result_settings.gesture_cooldown = self.cooldown.value()
