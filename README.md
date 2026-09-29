@@ -9,6 +9,7 @@ HandWave Music is a polished desktop MP3 player controlled by hand gestures, mou
 - Open-palm hold for play/pause with state locking so a raised hand does not trigger accidentally
 - Right thumb–index pinch for next and left thumb–index pinch for previous
 - Explicit volume mode with smoothed thumb–index distance and double-pinch save
+- Add local MP3 files or download and convert one YouTube video with an optional filename
 - Threaded webcam capture and hand analysis, keeping the interface responsive
 - Spectrum, wave, and circular visualizers with rise/fall interpolation
 - MP3 metadata, duration, and embedded cover artwork via Mutagen
@@ -45,7 +46,14 @@ On macOS/Linux, activate the environment with `source .venv/bin/activate`.
 
 ## Add music
 
-Copy `.mp3` files directly into:
+Click **＋ Add** above the playlist and choose either:
+
+- **From Files** — select one or more `.mp3` files. HandWave copies them into `music/` without overwriting an existing track.
+- **From YouTube** — paste a `youtube.com` or `youtu.be` video link, optionally enter the desired MP3 filename, then select **Download and Convert to MP3**. Leave the filename blank to use the video title.
+
+The download and FFmpeg conversion run in the background. The playlist refreshes as soon as the operation completes. Download only content you own or have permission to use; availability and permitted use vary by video and region.
+
+You can also copy `.mp3` files directly into:
 
 ```text
 music/
@@ -116,6 +124,8 @@ Settings are saved to the ignored `settings.json` file when the app closes.
 - **pygame-ce** — streamed MP3 playback and seeking
 - **NumPy** — bounded FFT spectrum analysis and animation data
 - **Mutagen** — MP3 metadata and embedded artwork
+- **yt-dlp** — single-video YouTube audio retrieval
+- **imageio-ffmpeg** — bundled FFmpeg binary for MP3 conversion
 
 ## Project structure
 
@@ -125,7 +135,7 @@ handwave-music/
 ├── music/                 # add MP3 files here (not committed)
 ├── assets/                # MediaPipe task model when required
 ├── src/
-│   ├── audio/             # playback, metadata, FFT analysis
+│   ├── audio/             # playback, metadata, import/download, FFT analysis
 │   ├── config/            # JSON settings
 │   ├── ui/                # window, camera, artwork, visualizer
 │   ├── vision/            # tracking, gestures, debounce controller
@@ -154,6 +164,10 @@ Use even front lighting, keep the entire hand in frame, select the intended cont
 ### Visualizer is idle
 
 The accurate spectrum is computed asynchronously after a track begins. A subtle fallback animation is displayed while analysis loads or when the decoder cannot analyze a file.
+
+### YouTube download fails
+
+Confirm the link points to one public YouTube video rather than a playlist, private video, live stream, or age/region-restricted video. YouTube import requires Node.js, Deno, Bun, or QuickJS; Node.js is the recommended choice. YouTube changes frequently, so update the pinned yt-dlp version after reviewing and testing upstream releases when extraction stops working. The application log contains the technical failure reason.
 
 ### MediaPipe model missing
 

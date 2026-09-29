@@ -4,3 +4,5 @@ opencv-contrib-python==4.13.0.92
 mediapipe==0.10.33
 numpy==2.3.3
 mutagen==1.48.1
+yt-dlp[default]==2026.8.19
+imageio-ffmpeg==0.6.0

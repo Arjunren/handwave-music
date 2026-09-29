@@ -30,6 +30,7 @@ MP3 folder
 - `metadata.py` constrains discovery to direct `.mp3` children, caps accepted file and artwork size, sanitizes display strings, and turns parsed files into immutable `Track` values.
 - `audio_player.py` owns pygame mixer state, timing, seeking, completion behavior, shuffle, and repeat rules.
 - `analyzer.py` computes a bounded 48-band spectral map on a daemon worker. Analysis is skipped for files over 64 MiB to avoid a large in-memory decode; playback continues with the elegant fallback animation. The UI retrieves one frame by current playback position and never blocks on decoding.
+- `importer.py` copies local MP3 files or retrieves one allowlisted YouTube video through yt-dlp. It sanitizes destinations, avoids overwrites, enforces a 512 MiB limit, disables third-party yt-dlp plugins, and delegates MP3 conversion to the bundled FFmpeg binary on a worker thread.
 
 ### Vision
 
@@ -51,6 +52,7 @@ MP3 folder
 - `camera-discovery` performs bounded device probing without blocking Qt.
 - `camera-worker` owns OpenCV and MediaPipe resources until disabled or the window closes.
 - `audio-analysis` handles decode and FFT without UI access.
+- `music-import` handles local copies, network retrieval, and FFmpeg conversion without UI access.
 - Qt signals cross the camera thread boundary safely.
 - Closing the window stops and joins the camera worker, closes the mixer, saves settings, and accepts the close event.
 

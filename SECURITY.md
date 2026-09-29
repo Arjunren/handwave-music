@@ -2,7 +2,7 @@
 
 ## Scope and trust boundaries
 
-HandWave is a local desktop application. Its untrusted inputs are MP3 files and their metadata, album images, camera frames, settings JSON, device behavior, and native dependencies. It has no web listener, account system, remote API, or telemetry.
+HandWave is a local desktop application. Its untrusted inputs are MP3 files and their metadata, album images, camera frames, settings JSON, YouTube responses, device behavior, and native dependencies. It has no web listener, account system, remote API, or telemetry.
 
 ## Implemented controls
 
@@ -16,6 +16,8 @@ HandWave is a local desktop application. Its untrusted inputs are MP3 files and 
 - Audio analysis is skipped above 64 MiB, otherwise bounded to 3,600 windows, and runs outside the UI thread.
 - Logs rotate at 1 MiB with three backups and do not record camera frames or MP3 contents.
 - No shell commands are constructed from metadata or filenames.
+- YouTube downloads accept only exact `youtube.com` and `youtu.be` hosts, disable third-party yt-dlp plugins, reject playlists, limit downloads to one item and 512 MiB, and sanitize optional output names.
+- Existing MP3 files are never overwritten; imports use a numbered destination when a name already exists.
 - MP3 content, local settings, environments, logs, and caches are excluded from Git.
 
 ## OWASP-oriented review
@@ -33,7 +35,7 @@ The classic OWASP Top 10 targets web applications, but the principles still appl
 | Authentication failures | Not applicable; the application has no accounts. |
 | Integrity failures | Install from this repository and obtain model assets only from official Google sources. |
 | Logging failures | Errors are logged with rotation; user-facing messages avoid raw tracebacks. |
-| SSRF | Not applicable; the app makes no runtime network requests. |
+| SSRF | Network retrieval is constrained to exact YouTube hostnames; arbitrary URLs and local schemes are rejected. |
 
 ## Native decoder warning
 

@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMainWindow,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QSlider,
     QVBoxLayout,
@@ -22,8 +23,11 @@ from PySide6.QtWidgets import (
 
 from src.audio.analyzer import AudioAnalyzer
 from src.audio.audio_player import AudioPlayer
+from src.audio.importer import MusicImporter
+from src.audio.metadata import scan_music
 from src.config.settings import AppSettings, SettingsStore
 from src.models import Gesture, GestureEvent, Track
+from src.ui.add_music_dialog import AddMusicDialog
 from src.ui.artwork import ArtworkWidget
 from src.ui.camera_widget import CameraView
 from src.ui.settings_dialog import SettingsDialog
@@ -56,6 +60,7 @@ class MainWindow(QMainWindow):
         self.analyzer = AudioAnalyzer()
         self.camera = CameraWorker(project_root)
         self.controller = GestureController(settings.gesture_cooldown)
+        self.importer = MusicImporter(project_root / "music")
         self._seeking = False
         self._available_cameras = [settings.camera_index]
         self.setWindowTitle("HandWave Music")
@@ -113,9 +118,14 @@ class MainWindow(QMainWindow):
 
         playlist_card, playlist_layout = self._card()
         playlist_card.setFixedWidth(270)
+        playlist_header_row = QHBoxLayout()
         playlist_header = QLabel("YOUR MUSIC")
         playlist_header.setObjectName("Eyebrow")
-        playlist_layout.addWidget(playlist_header)
+        self.add_music_button = QPushButton("＋ Add")
+        playlist_header_row.addWidget(playlist_header)
+        playlist_header_row.addStretch()
+        playlist_header_row.addWidget(self.add_music_button)
+        playlist_layout.addLayout(playlist_header_row)
         self.playlist_count = QLabel("0 tracks")
         self.playlist_count.setObjectName("Muted")
         playlist_layout.addWidget(self.playlist_count)
@@ -127,6 +137,15 @@ class MainWindow(QMainWindow):
         self.empty_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_message.setWordWrap(True)
         playlist_layout.addWidget(self.empty_message)
+        self.import_status = QLabel("")
+        self.import_status.setObjectName("Muted")
+        self.import_status.setWordWrap(True)
+        self.import_status.hide()
+        self.import_progress = QProgressBar()
+        self.import_progress.setRange(0, 100)
+        self.import_progress.hide()
+        playlist_layout.addWidget(self.import_status)
+        playlist_layout.addWidget(self.import_progress)
         content.addWidget(playlist_card)
 
         middle = QVBoxLayout()
@@ -270,6 +289,7 @@ class MainWindow(QMainWindow):
         self.progress.sliderReleased.connect(self._seek_released)
         self.camera_toggle.toggled.connect(self._toggle_camera)
         self.settings_button.clicked.connect(self._show_settings)
+        self.add_music_button.clicked.connect(self._show_add_music)
         self.player.on_track_changed = self._track_changed
         self.player.on_state_changed = self._play_state_changed
         self.player.on_error = self._show_error
@@ -278,6 +298,9 @@ class MainWindow(QMainWindow):
         self.camera.status_changed.connect(self._camera_status_changed)
         self.camera.cameras_found.connect(self._cameras_discovered)
         self.controller.on_action = self._gesture_action
+        self.importer.progress.connect(self._import_progress_changed)
+        self.importer.completed.connect(self._import_completed)
+        self.importer.failed.connect(self._import_failed)
         if not self.player.available:
             QTimer.singleShot(
                 0, lambda: self._show_error(self.player.initialization_error or "Audio is unavailable")
@@ -303,6 +326,61 @@ class MainWindow(QMainWindow):
         self.playlist_count.setText(f"{len(self.tracks)} track{'s' if len(self.tracks) != 1 else ''}")
         self.empty_message.setVisible(not self.tracks)
         self.playlist.setVisible(bool(self.tracks))
+
+    def _show_add_music(self) -> None:
+        if self.importer.busy:
+            self._feedback("MUSIC IMPORT IN PROGRESS", 800)
+            return
+        dialog = AddMusicDialog(self)
+        if not dialog.exec():
+            return
+        self.add_music_button.setEnabled(False)
+        self.import_status.setText("Preparing…")
+        self.import_status.show()
+        self.import_progress.setValue(0)
+        self.import_progress.show()
+        if dialog.mode == "files":
+            started = self.importer.import_local(dialog.files)
+        else:
+            started = self.importer.download_youtube(dialog.youtube_url, dialog.optional_name)
+        if not started:
+            self.add_music_button.setEnabled(True)
+
+    def _import_progress_changed(self, percent: int, message: str) -> None:
+        self.import_progress.setValue(percent)
+        self.import_status.setText(message)
+
+    def _reload_library(self) -> None:
+        current_path = self.player.current.path if self.player.current else None
+        self.tracks = scan_music(self.project_root / "music")
+        self.player.tracks = self.tracks
+        if current_path:
+            matching = [index for index, track in enumerate(self.tracks) if track.path == current_path]
+            if matching:
+                self.player.index = matching[0]
+            else:
+                self.player.stop()
+                self.player.index = -1
+        self._populate_playlist()
+
+    def _import_completed(self, message: str) -> None:
+        self._reload_library()
+        self.import_progress.setValue(100)
+        self.import_status.setText(message)
+        self.add_music_button.setEnabled(True)
+        self._feedback("✓  MUSIC ADDED", 1200)
+        QTimer.singleShot(4500, self._hide_import_status)
+
+    def _import_failed(self, message: str) -> None:
+        self.import_status.setText("Import failed")
+        self.import_progress.hide()
+        self.add_music_button.setEnabled(True)
+        QMessageBox.warning(self, "Could Not Add Music", message)
+
+    def _hide_import_status(self) -> None:
+        if not self.importer.busy:
+            self.import_status.hide()
+            self.import_progress.hide()
 
     def _discover_and_start_camera(self) -> None:
         if not self.settings.hand_tracking:
@@ -489,6 +567,14 @@ class MainWindow(QMainWindow):
             super().keyPressEvent(event)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
+        if self.importer.busy:
+            QMessageBox.information(
+                self,
+                "Music Import in Progress",
+                "Please wait for the current music import to finish before closing HandWave.",
+            )
+            event.ignore()
+            return
         self.camera.stop()
         self.player.close()
         self.settings_store.save(self.settings)

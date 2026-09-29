@@ -2,11 +2,14 @@
 
 HandWave is a source-run desktop app. It does not require a server, database, account, or network connection after installation.
 
+The optional YouTube import feature requires network access while a requested video is being retrieved. MP3 playback, local file import, gestures, and all other features remain local.
+
 ## Supported environment
 
 - 64-bit CPython 3.10–3.14
 - Windows 10/11, modern macOS, or a desktop Linux distribution
 - Audio output device; webcam optional
+- Node.js or another yt-dlp-supported JavaScript runtime is required for YouTube import
 
 ## Clean installation
 
@@ -37,6 +40,8 @@ Only obtain this binary from Google's official MediaPipe model storage linked by
 The entry point creates `music/`, `assets/`, and `logs/`, loads or defaults `settings.json`, scans direct MP3 children, initializes audio, opens the window, and then enumerates a bounded set of camera indexes.
 
 If camera or audio setup fails, the interface remains open and displays a user-facing error. Technical detail is retained in `logs/handwave.log`.
+
+`imageio-ffmpeg` supplies the FFmpeg executable used by YouTube-to-MP3 conversion, so a separate system FFmpeg install is not required. yt-dlp and YouTube change frequently; if downloads begin failing, validate a newer pinned yt-dlp release in a fresh environment before updating `requirements.txt`.
 
 ## Updating dependencies
 

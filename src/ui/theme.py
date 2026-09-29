@@ -15,6 +15,8 @@ QPushButton:hover { background: #242b3d; border-color: #414a63; }
 QPushButton:pressed { background: #151a27; }
 QPushButton#Primary { background: #a65cff; border: none; color: white; font-size: 19px; font-weight: 700; border-radius: 23px; min-width: 46px; min-height: 46px; padding: 0px; }
 QPushButton#Primary:hover { background: #b97cff; }
+QPushButton#PrimaryAction { background: #8f4cdb; border: none; color: white; font-weight: 700; padding: 11px 16px; }
+QPushButton#PrimaryAction:hover { background: #a965ef; }
 QPushButton#Round { border-radius: 19px; min-width: 38px; min-height: 38px; padding: 0px; font-size: 17px; }
 QPushButton#Toggle:checked { background: #153f45; color: #68edff; border-color: #28717d; }
 QPushButton#Active { color: #c993ff; border-color: #7040a6; }
@@ -27,6 +29,13 @@ QSlider::sub-page:horizontal { background: #a65cff; border-radius: 2px; }
 QSlider::handle:horizontal { background: #ffffff; width: 14px; margin: -5px 0; border-radius: 7px; }
 QComboBox, QSpinBox, QDoubleSpinBox { background: #1a1f2d; border: 1px solid #30384c; border-radius: 8px; padding: 7px 10px; min-width: 105px; }
 QComboBox QAbstractItemView { background: #171b27; selection-background-color: #6f3ba2; border: 1px solid #30384c; }
+QLineEdit { background: #0f131d; border: 1px solid #30384c; border-radius: 9px; padding: 9px 11px; selection-background-color: #7d43b8; }
+QLineEdit:focus { border-color: #8f55c7; }
+QTabWidget::pane { border: 1px solid #252c3d; border-radius: 12px; background: #121621; }
+QTabBar::tab { background: #171c29; color: #929bad; padding: 9px 16px; margin-right: 3px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+QTabBar::tab:selected { background: #28213a; color: #d8b7ff; }
+QProgressBar { background: #222838; border: none; border-radius: 4px; height: 8px; text-align: center; color: transparent; }
+QProgressBar::chunk { background: #a65cff; border-radius: 4px; }
 QScrollBar:vertical { background: transparent; width: 8px; }
 QScrollBar::handle:vertical { background: #30374b; min-height: 28px; border-radius: 4px; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
