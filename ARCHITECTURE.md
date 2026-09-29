@@ -59,10 +59,12 @@ Worker threads are daemonized as a final safety net, but explicit shutdown is th
 ## Gesture details
 
 - Finger extension compares tip, PIP, and MCP landmark Y positions.
-- Open palm requires all four fingers and a separated thumb.
-- Volume requires most non-index fingers folded, preventing conflict with open palm.
-- Swipes require displacement and velocity inside a 550 ms history.
-- Sensitivity changes displacement threshold, not the gesture action layer.
+- Open palm requires all four fingers, a separated thumb, and a 0.85-second hold before play/pause.
+- A right thumb–index pinch emits Next; the same pinch on the left hand emits Previous. Hysteresis ensures a held pinch fires only once.
+- One thumb–middle pinch enters volume mode after a short confirmation delay.
+- In volume mode, normalized thumb–index distance maps continuously to 0–100% volume.
+- A thumb–middle double pinch within 0.58 seconds saves the level and exits volume mode.
+- Sensitivity adjusts pinch thresholds while action cooldown remains a separate setting.
 - MediaPipe is configured for two-hand detection, but only one selected hand feeds the detector.
 
 ## Visual analysis

@@ -6,9 +6,9 @@ HandWave Music is a polished desktop MP3 player controlled by hand gestures, mou
 
 ## Highlights
 
-- Open-palm play/pause with state locking so a held palm fires once
-- Left/right swipes for previous and next track with motion thresholds and cooldowns
-- Smoothed thumb-to-index pinch volume
+- Open-palm hold for play/pause with state locking so a raised hand does not trigger accidentally
+- Right thumb–index pinch for next and left thumb–index pinch for previous
+- Explicit volume mode with smoothed thumb–index distance and double-pinch save
 - Threaded webcam capture and hand analysis, keeping the interface responsive
 - Spectrum, wave, and circular visualizers with rise/fall interpolation
 - MP3 metadata, duration, and embedded cover artwork via Mutagen
@@ -67,10 +67,14 @@ Keep one primary hand clearly visible and roughly face the palm toward the camer
 
 | Gesture | Action | Recognition behavior |
 |---|---|---|
-| Open palm | Play / pause | Fires once; reset by changing the gesture |
-| Swipe right | Next song | Wrist movement over a time window |
-| Swipe left | Previous song | Wrist movement over a time window |
-| Thumb + index distance | Volume | Continuous, smoothed 0–100% mapping |
+| Open palm held for 0.85 seconds | Play / pause | Fires once; reset by changing the gesture |
+| Right thumb + index pinch | Next song | Fires once per pinch |
+| Left thumb + index pinch | Previous song | Fires once per pinch |
+| Thumb + middle pinch once | Enter volume mode | Works with either hand |
+| Thumb + index distance in volume mode | Adjust volume | Continuous, smoothed 0–100% mapping |
+| Thumb + middle double pinch | Save volume and exit | Two distinct pinches within 0.58 seconds |
+
+For Next or Previous, raise the intended hand and make one clear thumb–index pinch. Volume mode deliberately separates adjustment from track changes: enter it with one thumb–middle pinch, adjust using thumb–index distance, then make a double thumb–middle pinch to save and return to normal controls.
 
 With multiple hands, HandWave selects the hand matching **Control Hand** when configured; in Auto mode it uses the best-confidence hand, with palm size as the tie breaker. Tune sensitivity and cooldown in Settings if lighting or camera placement causes unreliable detection.
 
@@ -94,6 +98,7 @@ With multiple hands, HandWave selects the hand matching **Control Hand** when co
 
 ## Settings
 
+- Hand tracking: On / Off
 - Camera index
 - Gesture sensitivity: Low / Medium / High
 - Gesture cooldown: 0.4–2.5 seconds

@@ -33,7 +33,7 @@ class GestureController:
                 event.confidence,
                 self._volume,
                 event.handedness,
-                f"Pinch Volume · {round(self._volume * 100)}%",
+                f"Volume Mode · {round(self._volume * 100)}%",
             )
             if self.on_action:
                 self.on_action(emitted)

@@ -345,7 +345,7 @@ class MainWindow(QMainWindow):
             self.camera_view.set_message(f"Camera unavailable\n{message}")
 
     def _gesture_received(self, event: GestureEvent) -> None:
-        self.gesture_text.setText(event.label if event.gesture is not Gesture.NONE else "Waiting…")
+        self.gesture_text.setText(event.label if event.label != "Waiting..." else "Waiting…")
         self.controller.process(event)
 
     def _gesture_action(self, event: GestureEvent) -> None:
@@ -358,6 +358,8 @@ class MainWindow(QMainWindow):
         elif event.gesture is Gesture.PREVIOUS:
             self.player.previous()
             self._feedback("⏮  PREVIOUS TRACK")
+        elif event.gesture is Gesture.VOLUME_MODE:
+            self._feedback("🔊  VOLUME MODE ON", 950)
         elif event.gesture is Gesture.VOLUME and event.volume is not None:
             value = round(event.volume * 100)
             self.volume.blockSignals(True)
@@ -365,6 +367,8 @@ class MainWindow(QMainWindow):
             self.volume.blockSignals(False)
             self._set_volume(event.volume)
             self._feedback(f"🔊  VOLUME {value}%", 520)
+        elif event.gesture is Gesture.VOLUME_SAVE:
+            self._feedback(f"✓  VOLUME SAVED · {self.volume.value()}%", 1100)
 
     def _feedback(self, text: str, duration: int = 950) -> None:
         self.overlay.setText(text)

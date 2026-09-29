@@ -69,6 +69,7 @@ class CameraWorker(QObject):
         self._show_landmarks = show_landmarks
         self._control_hand = control_hand
         self._detector.sensitivity = sensitivity
+        self._detector.reset(clear_mode=True)
         self._running = True
         self._thread = threading.Thread(target=self._run, daemon=True, name="camera-worker")
         self._thread.start()

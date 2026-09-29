@@ -10,7 +10,9 @@ class Gesture(Enum):
     PLAY_PAUSE = auto()
     NEXT = auto()
     PREVIOUS = auto()
+    VOLUME_MODE = auto()
     VOLUME = auto()
+    VOLUME_SAVE = auto()
 
 
 @dataclass(frozen=True, slots=True)

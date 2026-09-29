@@ -3,7 +3,7 @@ from src.vision.gesture_controller import GestureController
 from src.vision.gesture_detector import GestureDetector, Point
 
 
-def make_hand(open_fingers: bool = True, pinch: float | None = None) -> list[Point]:
+def make_hand(open_fingers: bool = True) -> list[Point]:
     points = [Point(0.5, 0.8) for _ in range(21)]
     points[0] = Point(0.5, 0.8)
     points[5] = Point(0.40, 0.62)
@@ -14,32 +14,65 @@ def make_hand(open_fingers: bool = True, pinch: float | None = None) -> list[Poi
         points[mcp] = Point(x, 0.62)
         points[pip] = Point(x, 0.48 if open_fingers else 0.70)
         points[tip] = Point(x, 0.28 if open_fingers else 0.76)
-    points[4] = Point(0.23 if pinch is None else 0.40 + pinch, 0.28 if open_fingers else 0.76)
+    points[4] = Point(0.23 if open_fingers else 0.30, 0.28 if open_fingers else 0.76)
     return points
 
 
-def test_open_palm_is_play_pause() -> None:
-    event = GestureDetector().update(make_hand(), now=1.0)
-    assert event.gesture is Gesture.PLAY_PAUSE
+def pinched(finger_tip: int) -> list[Point]:
+    points = make_hand(False)
+    thumb = points[4]
+    points[finger_tip] = Point(thumb.x + 0.01, thumb.y)
+    return points
 
 
-def test_folded_hand_pinches_for_volume() -> None:
+def test_open_palm_requires_hold_for_play_pause() -> None:
     detector = GestureDetector()
-    low = detector.update(make_hand(False, 0.02), now=1.0)
-    high = detector.update(make_hand(False, 0.21), now=1.1)
+    assert detector.update(make_hand(), now=1.0).gesture is Gesture.NONE
+    assert detector.update(make_hand(), now=1.5).gesture is Gesture.NONE
+    assert detector.update(make_hand(), now=1.9).gesture is Gesture.PLAY_PAUSE
+
+
+def test_right_index_pinch_is_next_and_fires_once_per_pinch() -> None:
+    detector = GestureDetector()
+    hand = pinched(8)
+    assert detector.update(hand, "Right", now=1.0).gesture is Gesture.NEXT
+    assert detector.update(hand, "Right", now=1.1).gesture is Gesture.NONE
+
+
+def test_left_index_pinch_is_previous() -> None:
+    detector = GestureDetector()
+    assert detector.update(pinched(8), "Left", now=1.0).gesture is Gesture.PREVIOUS
+
+
+def enter_volume_mode(detector: GestureDetector, handedness: str = "Right") -> None:
+    assert detector.update(pinched(12), handedness, now=1.0).gesture is Gesture.NONE
+    assert detector.update(make_hand(False), handedness, now=1.2).gesture is Gesture.NONE
+    assert detector.update(make_hand(False), handedness, now=1.5).gesture is Gesture.VOLUME_MODE
+    assert detector.volume_mode
+
+
+def test_middle_pinch_enters_volume_mode_and_index_distance_controls_level() -> None:
+    detector = GestureDetector()
+    enter_volume_mode(detector)
+    low_hand = make_hand(False)
+    low_hand[8] = Point(0.32, 0.76)
+    high_hand = make_hand(False)
+    high_hand[8] = Point(0.70, 0.76)
+    low = detector.update(low_hand, "Right", now=1.6)
+    high = detector.update(high_hand, "Right", now=1.7)
     assert low.gesture is Gesture.VOLUME
     assert high.gesture is Gesture.VOLUME
     assert low.volume < high.volume
 
 
-def test_swipe_emits_next_once() -> None:
-    detector = GestureDetector("High")
-    result = None
-    for index, x in enumerate((0.25, 0.30, 0.36, 0.44, 0.55)):
-        hand = make_hand(False, 0.03)
-        hand[0] = Point(x, 0.8)
-        result = detector.update(hand, now=1.0 + index * 0.08)
-    assert result.gesture is Gesture.NEXT
+def test_double_middle_pinch_saves_and_exits_volume_mode() -> None:
+    detector = GestureDetector()
+    enter_volume_mode(detector, "Left")
+    assert detector.update(pinched(12), "Left", now=2.0).gesture is Gesture.NONE
+    detector.update(make_hand(False), "Left", now=2.1)
+    saved = detector.update(pinched(12), "Left", now=2.3)
+    assert saved.gesture is Gesture.VOLUME_SAVE
+    assert not detector.volume_mode
 
 
 def test_discrete_gesture_is_locked_until_clear() -> None:
@@ -53,8 +86,8 @@ def test_discrete_gesture_is_locked_until_clear() -> None:
 
 def test_cooldown_survives_brief_clear() -> None:
     controller = GestureController(cooldown=1.0)
-    swipe = GestureEvent(Gesture.NEXT, 0.9)
-    assert controller.process(swipe, now=1.0) is not None
+    pinch = GestureEvent(Gesture.NEXT, 0.9)
+    assert controller.process(pinch, now=1.0) is not None
     controller.process(GestureEvent(Gesture.NONE), now=1.1)
-    assert controller.process(swipe, now=1.5) is None
-    assert controller.process(swipe, now=2.1) is not None
+    assert controller.process(pinch, now=1.5) is None
+    assert controller.process(pinch, now=2.1) is not None
