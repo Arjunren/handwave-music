@@ -7,8 +7,8 @@ Music HandControl is a polished desktop MP3 player controlled by hand gestures, 
 ## Highlights
 
 - Open-palm hold for play/pause with state locking so a raised hand does not trigger accidentally
-- Right thumb–index pinch for next and left thumb–index pinch for previous
-- Easy volume mode: hold a peace sign, move your hand vertically, then hold a fist to save
+- Two-second right thumb–index hold for next and left thumb–index hold for previous, with visible loading progress
+- Two-hand volume control: keep one hand in a peace sign and change the other hand's thumb–index distance
 - Add local MP3 files or download and convert one YouTube video with an optional filename
 - Threaded webcam capture and hand analysis, keeping the interface responsive
 - Spectrum, wave, and circular visualizers with rise/fall interpolation
@@ -71,20 +71,19 @@ Add MP3 files inside the /music folder.
 
 ## Gestures
 
-Keep one primary hand clearly visible and roughly face the palm toward the camera.
+Keep the controlling hand clearly visible and roughly face the palm toward the camera. Show both hands for volume control.
 
 | Gesture | Action | Recognition behavior |
 |---|---|---|
 | Open palm held for 0.85 seconds | Play / pause | Fires once; reset by changing the gesture |
-| Right thumb + index pinch | Next song | Fires once per pinch |
-| Left thumb + index pinch | Previous song | Fires once per pinch |
-| Peace sign held for 0.55 seconds | Enter volume mode | Works with either hand |
-| Move the active hand up or down | Raise or lower volume | Continuous, smoothed 0–100% mapping |
-| Closed fist held for 0.65 seconds | Save volume and exit | The current volume freezes as soon as the fist is seen |
+| Right thumb + index held for 2 seconds | Next song | A loading bar fills from 0–100%; release early to cancel |
+| Left thumb + index held for 2 seconds | Previous song | A loading bar fills from 0–100%; release early to cancel |
+| Peace sign on one hand + thumb–index distance on the other | Adjust volume | Fingers together are quieter; fingers farther apart are louder |
+| Release the peace sign | Keep the selected volume | Ends two-hand volume control automatically |
 
-For Next or Previous, raise the intended hand and make one clear thumb–index pinch. Volume mode deliberately separates adjustment from track changes: hold a peace sign to enter, move the tracked hand vertically to adjust, then hold a closed fist to save and return to normal controls.
+For Next or Previous, raise the intended hand and keep the thumb and index finger touching until the loading bar reaches 100%. Two-hand volume takes priority over track changes, so a pinch on the second hand changes volume whenever the other hand is making a peace sign.
 
-With multiple hands, Music HandControl selects the hand matching **Control Hand** when configured; in Auto mode it uses the best-confidence hand, with palm size as the tie breaker. Tune sensitivity and cooldown in Settings if lighting or camera placement causes unreliable detection.
+The **Control Hand** setting applies to single-hand playback gestures. Two-hand volume always observes both hands. In Auto mode, Music HandControl uses the best-confidence hand for single-hand controls, with palm size as the tie breaker. Tune sensitivity and cooldown in Settings if lighting or camera placement causes unreliable detection.
 
 ## Gesture tutorial
 
@@ -99,24 +98,26 @@ Keep your full hand inside the camera view, face your palm roughly toward the ca
 ### Next song
 
 1. Raise your **right hand**.
-2. Touch your right index fingertip and thumb together once.
-3. Separate them before making another Next gesture.
+2. Touch your right index fingertip and thumb together and keep them touching.
+3. Watch the loading bar fill for two seconds. Releasing early cancels the action.
+4. After **Next Track** appears, separate your fingers before using the gesture again.
 
 ### Previous song
 
 1. Raise your **left hand**.
-2. Touch your left index fingertip and thumb together once.
-3. Separate them before making another Previous gesture.
+2. Touch your left index fingertip and thumb together and keep them touching.
+3. Watch the loading bar fill for two seconds. Releasing early cancels the action.
+4. After **Previous Track** appears, separate your fingers before using the gesture again.
 
-### Change and save the volume
+### Change and keep the volume
 
-1. With either hand, raise only your index and middle fingers to make a peace sign.
-2. Hold the peace sign until **Volume Mode On** appears.
-3. Move the tracked hand upward for louder audio or downward for quieter audio. You may relax and open your hand while moving it.
-4. When the displayed percentage is right, close the same hand into a fist. The volume freezes immediately, so closing the fist will not decrease it.
-5. Hold the fist briefly until **Volume Saved** appears, then reopen or lower your hand.
+1. Raise both hands where the camera can see them completely.
+2. Make and keep a peace sign with either hand. This hand acts as the volume-mode switch.
+3. On your other hand, touch the index finger and thumb together for quieter audio.
+4. Move that index finger and thumb farther apart for louder audio. The displayed percentage follows their distance.
+5. Release the peace sign when the volume is right. **Volume Set** appears and the selected level remains active.
 
-For the most reliable control, use even front lighting, keep one hand closer to the camera than the other, and avoid letting fingertips leave the frame.
+For the most reliable control, use even front lighting, leave space between both hands, and avoid letting fingertips leave the frame.
 
 ## Keyboard controls
 

@@ -172,6 +172,12 @@ class MainWindow(QMainWindow):
         gesture_row.addStretch()
         gesture_row.addWidget(self.gesture_text)
         camera_layout.addLayout(gesture_row)
+        self.gesture_progress = QProgressBar()
+        self.gesture_progress.setRange(0, 100)
+        self.gesture_progress.setTextVisible(False)
+        self.gesture_progress.setFixedHeight(7)
+        self.gesture_progress.hide()
+        camera_layout.addWidget(self.gesture_progress)
         middle.addWidget(camera_card, 2)
         visual_card, visual_layout = self._card()
         visual_head = QHBoxLayout()
@@ -424,6 +430,11 @@ class MainWindow(QMainWindow):
 
     def _gesture_received(self, event: GestureEvent) -> None:
         self.gesture_text.setText(event.label if event.label != "Waiting..." else "Waiting…")
+        if event.progress is None:
+            self.gesture_progress.hide()
+        else:
+            self.gesture_progress.setValue(round(event.progress * 100))
+            self.gesture_progress.show()
         self.controller.process(event)
 
     def _gesture_action(self, event: GestureEvent) -> None:
@@ -437,7 +448,7 @@ class MainWindow(QMainWindow):
             self.player.previous()
             self._feedback("⏮  PREVIOUS TRACK")
         elif event.gesture is Gesture.VOLUME_MODE:
-            self._feedback("🔊  VOLUME MODE ON", 950)
+            self._feedback("✌  TWO-HAND VOLUME ON", 950)
         elif event.gesture is Gesture.VOLUME and event.volume is not None:
             value = round(event.volume * 100)
             self.volume.blockSignals(True)
@@ -446,7 +457,7 @@ class MainWindow(QMainWindow):
             self._set_volume(event.volume)
             self._feedback(f"🔊  VOLUME {value}%", 520)
         elif event.gesture is Gesture.VOLUME_SAVE:
-            self._feedback(f"✓  VOLUME SAVED · {self.volume.value()}%", 1100)
+            self._feedback(f"✓  VOLUME SET · {self.volume.value()}%", 1100)
 
     def _feedback(self, text: str, duration: int = 950) -> None:
         self.overlay.setText(text)

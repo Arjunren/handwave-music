@@ -11,7 +11,6 @@ import numpy as np
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QImage
 
-from src.models import Gesture, GestureEvent
 from src.vision.gesture_detector import GestureDetector, Point
 
 LOGGER = logging.getLogger(__name__)
@@ -141,13 +140,6 @@ class CameraWorker(QObject):
             hands.append((list(landmarks), category.category_name, float(category.score or 0.0)))
         return hands
 
-    def _select_hand(self, hands: list[tuple[list[Any], str, float]]) -> tuple[list[Any], str, float] | None:
-        candidates = [hand for hand in hands if self._control_hand == "Auto" or hand[1] == self._control_hand]
-        if not candidates:
-            return None
-        # Primary hand: highest handedness confidence, with apparent palm size as tie breaker.
-        return max(candidates, key=lambda hand: (hand[2], abs(hand[0][5].x - hand[0][17].x)))
-
     def _draw(self, frame: np.ndarray, landmarks: list[Any]) -> None:
         height, width = frame.shape[:2]
         points = [(int(item.x * width), int(item.y * height)) for item in landmarks]
@@ -185,18 +177,19 @@ class CameraWorker(QObject):
                 frame = cv2.flip(frame, 1)
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 hands = self._extract(mode, tracker, rgb, int((time.monotonic() - started) * 1000))
-                primary = self._select_hand(hands)
-                if primary:
-                    landmarks, handedness, _ = primary
-                    event = self._detector.update(
-                        [Point(float(item.x), float(item.y), float(item.z)) for item in landmarks], handedness
+                detected = [
+                    (
+                        [Point(float(item.x), float(item.y), float(item.z)) for item in landmarks],
+                        handedness,
+                        confidence,
                     )
-                    self.gesture_ready.emit(event)
-                    if self._show_landmarks:
+                    for landmarks, handedness, confidence in hands
+                ]
+                event = self._detector.update_hands(detected, self._control_hand)
+                self.gesture_ready.emit(event)
+                if self._show_landmarks:
+                    for landmarks, _, _ in hands:
                         self._draw(frame, landmarks)
-                else:
-                    self._detector.reset()
-                    self.gesture_ready.emit(GestureEvent(Gesture.NONE))
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 image = QImage(
                     rgb.data, rgb.shape[1], rgb.shape[0], rgb.strides[0], QImage.Format.Format_RGB888

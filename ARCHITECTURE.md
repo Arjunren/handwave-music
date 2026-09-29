@@ -34,8 +34,8 @@ MP3 folder
 
 ### Vision
 
-- `hand_tracker.py` owns the camera on a dedicated thread, supports MediaPipe's legacy and Tasks interfaces, selects exactly one primary hand, draws subtle landmarks, and emits copied `QImage` frames.
-- `gesture_detector.py` depends only on 21 normalized points. It recognizes posture, pinch distance, and time-window wrist motion, making the recognition logic independently testable.
+- `hand_tracker.py` owns the camera on a dedicated thread, supports MediaPipe's legacy and Tasks interfaces, passes up to two detected hands to the gesture layer, draws subtle landmarks for each, and emits copied `QImage` frames.
+- `gesture_detector.py` depends only on normalized hand points, handedness, and confidence. It recognizes posture, pinch distance, and timed holds, making the recognition logic independently testable.
 - `gesture_controller.py` makes commands safe: a held discrete pose is locked, cooldowns survive a brief pose change, and volume uses exponential smoothing plus an emission-rate limit.
 
 ### UI
@@ -62,12 +62,12 @@ Worker threads are daemonized as a final safety net, but explicit shutdown is th
 
 - Finger extension compares tip, PIP, and MCP landmark Y positions.
 - Open palm requires all four fingers, a separated thumb, and a 0.85-second hold before play/pause.
-- A right thumb–index pinch emits Next; the same pinch on the left hand emits Previous. Hysteresis ensures a held pinch fires only once.
-- Holding a peace sign for 0.55 seconds enters volume mode with either hand.
-- In volume mode, vertical wrist position maps continuously and smoothly to 0–100% volume.
-- A closed fist freezes the current level immediately; holding it for 0.65 seconds saves the level and exits volume mode.
+- A right thumb–index pinch held for two seconds emits Next; the same held pinch on the left hand emits Previous. The event carries continuous progress for the UI loading bar, and release cancels or rearms it.
+- A peace sign on either hand enables two-hand volume mode while a second hand is visible.
+- The second hand's normalized thumb–index distance maps continuously and smoothly to 0–100% volume.
+- Releasing the peace sign keeps the current level and exits volume mode.
 - Sensitivity adjusts pinch thresholds while action cooldown remains a separate setting.
-- MediaPipe is configured for two-hand detection, but only one selected hand feeds the detector.
+- Two-hand volume has priority over single-hand track gestures; the configured Control Hand still filters ordinary single-hand actions.
 
 ## Visual analysis
 

@@ -22,6 +22,7 @@ class GestureEvent:
     volume: float | None = None
     handedness: str = "Unknown"
     label: str = "Waiting..."
+    progress: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

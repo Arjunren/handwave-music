@@ -25,9 +25,8 @@ def pinched(finger_tip: int) -> list[Point]:
     return points
 
 
-def peace_sign(wrist_y: float = 0.5) -> list[Point]:
+def peace_sign() -> list[Point]:
     points = make_hand(False)
-    points[0] = Point(0.5, wrist_y)
     for tip, pip, mcp, x in ((8, 6, 5, 0.40), (12, 10, 9, 0.48)):
         points[mcp] = Point(x, 0.62)
         points[pip] = Point(x, 0.48)
@@ -35,9 +34,9 @@ def peace_sign(wrist_y: float = 0.5) -> list[Point]:
     return points
 
 
-def hand_at_height(wrist_y: float) -> list[Point]:
-    points = make_hand()
-    points[0] = Point(0.5, wrist_y)
+def volume_hand(index_x: float) -> list[Point]:
+    points = make_hand(False)
+    points[8] = Point(index_x, points[4].y)
     return points
 
 
@@ -48,47 +47,60 @@ def test_open_palm_requires_hold_for_play_pause() -> None:
     assert detector.update(make_hand(), now=1.9).gesture is Gesture.PLAY_PAUSE
 
 
-def test_right_index_pinch_is_next_and_fires_once_per_pinch() -> None:
+def test_right_index_pinch_loads_for_two_seconds_then_fires_next_once() -> None:
     detector = GestureDetector()
     hand = pinched(8)
-    assert detector.update(hand, "Right", now=1.0).gesture is Gesture.NEXT
-    assert detector.update(hand, "Right", now=1.1).gesture is Gesture.NONE
+    started = detector.update(hand, "Right", now=1.0)
+    halfway = detector.update(hand, "Right", now=2.0)
+    completed = detector.update(hand, "Right", now=3.0)
+    held = detector.update(hand, "Right", now=3.2)
+    assert started.gesture is Gesture.NONE
+    assert started.progress == 0.0
+    assert halfway.gesture is Gesture.NONE
+    assert halfway.progress == 0.5
+    assert completed.gesture is Gesture.NEXT
+    assert completed.progress == 1.0
+    assert held.gesture is Gesture.NONE
+    assert held.progress == 1.0
 
 
-def test_left_index_pinch_is_previous() -> None:
+def test_left_index_pinch_requires_two_seconds_for_previous() -> None:
     detector = GestureDetector()
-    assert detector.update(pinched(8), "Left", now=1.0).gesture is Gesture.PREVIOUS
+    assert detector.update(pinched(8), "Left", now=1.0).gesture is Gesture.NONE
+    assert detector.update(pinched(8), "Left", now=2.9).gesture is Gesture.NONE
+    assert detector.update(pinched(8), "Left", now=3.0).gesture is Gesture.PREVIOUS
 
 
-def enter_volume_mode(detector: GestureDetector, handedness: str = "Right") -> None:
-    assert detector.update(peace_sign(), handedness, now=1.0).gesture is Gesture.NONE
-    assert detector.update(peace_sign(), handedness, now=1.3).gesture is Gesture.NONE
-    assert detector.update(peace_sign(), handedness, now=1.6).gesture is Gesture.VOLUME_MODE
-    assert detector.volume_mode
-
-
-def test_peace_sign_enters_volume_mode_and_hand_height_controls_level() -> None:
+def test_other_hand_peace_sign_enables_pinch_distance_volume() -> None:
     detector = GestureDetector()
-    enter_volume_mode(detector)
-    low = detector.update(hand_at_height(0.78), "Right", now=1.7)
-    high = detector.update(hand_at_height(0.18), "Right", now=1.8)
+    low_hands = [(peace_sign(), "Left", 0.9), (volume_hand(0.31), "Right", 0.8)]
+    high_hands = [(peace_sign(), "Left", 0.9), (volume_hand(0.68), "Right", 0.8)]
+    entered = detector.update_hands(low_hands, now=1.0)
+    low = detector.update_hands(low_hands, now=1.1)
+    high = detector.update_hands(high_hands, now=1.2)
+    assert entered.gesture is Gesture.VOLUME_MODE
     assert low.gesture is Gesture.VOLUME
     assert high.gesture is Gesture.VOLUME
     assert low.volume < high.volume
 
 
-def test_held_fist_freezes_volume_then_saves_and_exits() -> None:
+def test_releasing_peace_sign_sets_volume_and_exits_mode() -> None:
     detector = GestureDetector()
-    enter_volume_mode(detector, "Left")
-    assert detector.update(hand_at_height(0.18), "Left", now=1.7).gesture is Gesture.VOLUME
-    fist = make_hand(False)
-    frozen = detector.update(fist, "Left", now=2.0)
-    assert frozen.gesture is Gesture.NONE
-    assert frozen.volume is None
-    assert detector.update(fist, "Left", now=2.4).gesture is Gesture.NONE
-    saved = detector.update(fist, "Left", now=2.7)
+    hands = [(peace_sign(), "Right", 0.9), (volume_hand(0.55), "Left", 0.8)]
+    assert detector.update_hands(hands, now=1.0).gesture is Gesture.VOLUME_MODE
+    assert detector.update_hands(hands, now=1.1).gesture is Gesture.VOLUME
+    saved = detector.update_hands([(volume_hand(0.55), "Left", 0.8)], now=1.2)
     assert saved.gesture is Gesture.VOLUME_SAVE
     assert not detector.volume_mode
+
+
+def test_two_hand_volume_takes_priority_over_track_pinch() -> None:
+    detector = GestureDetector()
+    hands = [(peace_sign(), "Right", 0.9), (pinched(8), "Left", 0.8)]
+    assert detector.update_hands(hands, now=1.0).gesture is Gesture.VOLUME_MODE
+    event = detector.update_hands(hands, now=3.5)
+    assert event.gesture is Gesture.VOLUME
+    assert event.volume == 0.0
 
 
 def test_discrete_gesture_is_locked_until_clear() -> None:

@@ -17,16 +17,15 @@ class Point:
 class GestureDetector:
     """Stateful landmark interpreter independent from MediaPipe and playback."""
 
-    VOLUME_ACTIVATION_DELAY = 0.55
-    FIST_SAVE_HOLD = 0.65
+    TRACK_HOLD = 2.0
     OPEN_PALM_HOLD = 0.85
 
     def __init__(self, sensitivity: str = "Medium") -> None:
         self.sensitivity = sensitivity
-        self._index_down = False
+        self._pinch_hand: str | None = None
+        self._pinch_started_at: float | None = None
+        self._pinch_fired = False
         self._volume_mode = False
-        self._volume_pose_at: float | None = None
-        self._save_fist_at: float | None = None
         self._open_palm_at: float | None = None
         self._open_palm_sent = False
 
@@ -35,13 +34,16 @@ class GestureDetector:
         return self._volume_mode
 
     def reset(self, clear_mode: bool = False) -> None:
-        self._index_down = False
-        self._volume_pose_at = None
-        self._save_fist_at = None
+        self._reset_pinch()
         self._open_palm_at = None
         self._open_palm_sent = False
         if clear_mode:
             self._volume_mode = False
+
+    def _reset_pinch(self) -> None:
+        self._pinch_hand = None
+        self._pinch_started_at = None
+        self._pinch_fired = False
 
     @staticmethod
     def _distance(a: Point, b: Point) -> float:
@@ -51,101 +53,132 @@ class GestureDetector:
     def _extended(points: list[Point], tip: int, pip: int, mcp: int) -> bool:
         return points[tip].y < points[pip].y - 0.012 and points[pip].y < points[mcp].y + 0.04
 
+    @classmethod
+    def _hand_state(cls, points: list[Point]) -> tuple[list[bool], float, float]:
+        palm_width = max(cls._distance(points[5], points[17]), 0.04)
+        fingers = [
+            cls._extended(points, 8, 6, 5),
+            cls._extended(points, 12, 10, 9),
+            cls._extended(points, 16, 14, 13),
+            cls._extended(points, 20, 18, 17),
+        ]
+        thumb_index = cls._distance(points[4], points[8]) / palm_width
+        return fingers, thumb_index, palm_width
+
     def update(
         self, landmarks: list[Point], handedness: str = "Unknown", now: float | None = None
     ) -> GestureEvent:
+        confidence = 1.0 if handedness != "Unknown" else 0.0
+        return self.update_hands([(landmarks, handedness, confidence)], now=now)
+
+    def update_hands(
+        self,
+        hands: list[tuple[list[Point], str, float]],
+        control_hand: str = "Auto",
+        now: float | None = None,
+    ) -> GestureEvent:
         now = time.monotonic() if now is None else now
-        if len(landmarks) != 21:
-            self.reset()
-            return GestureEvent(Gesture.NONE)
-        palm_width = max(self._distance(landmarks[5], landmarks[17]), 0.04)
-        fingers = [
-            self._extended(landmarks, 8, 6, 5),
-            self._extended(landmarks, 12, 10, 9),
-            self._extended(landmarks, 16, 14, 13),
-            self._extended(landmarks, 20, 18, 17),
+        valid_hands = [
+            (points, handedness.title(), confidence)
+            for points, handedness, confidence in hands
+            if len(points) == 21
         ]
-        thumb_index = self._distance(landmarks[4], landmarks[8]) / palm_width
         pinch_on = {"Low": 0.24, "Medium": 0.30, "High": 0.36}.get(self.sensitivity, 0.30)
         pinch_off = pinch_on + 0.17
-        index_now = thumb_index <= (pinch_off if self._index_down else pinch_on)
-        index_pressed = index_now and not self._index_down
-        self._index_down = index_now
-        handedness = handedness.title()
 
-        if self._volume_mode:
+        states = [
+            (points, handedness, confidence, *self._hand_state(points))
+            for points, handedness, confidence in valid_hands
+        ]
+        peace_hands = [
+            state
+            for state in states
+            if state[3][0] and state[3][1] and not state[3][2] and not state[3][3] and state[4] > pinch_off
+        ]
+        volume_pair = None
+        for anchor in sorted(peace_hands, key=lambda state: state[2], reverse=True):
+            other_hands = [state for state in states if state is not anchor]
+            if other_hands:
+                volume_pair = (anchor, max(other_hands, key=lambda state: state[2]))
+                break
+
+        if volume_pair is not None:
+            _, controller = volume_pair
+            self._reset_pinch()
             self._open_palm_at = None
             self._open_palm_sent = False
-            closed_fist = not any(fingers)
-            if closed_fist:
-                if self._save_fist_at is None:
-                    self._save_fist_at = now
-                if now - self._save_fist_at >= self.FIST_SAVE_HOLD:
-                    self._save_fist_at = None
-                    self._volume_mode = False
-                    return GestureEvent(
-                        Gesture.VOLUME_SAVE,
-                        1.0,
-                        handedness=handedness,
-                        label="Volume Saved",
-                    )
+            if not self._volume_mode:
+                self._volume_mode = True
                 return GestureEvent(
-                    Gesture.NONE,
-                    handedness=handedness,
-                    label="Hold fist to save volume",
+                    Gesture.VOLUME_MODE,
+                    1.0,
+                    handedness=controller[1],
+                    label="Two-Hand Volume On",
                 )
-            self._save_fist_at = None
-            normalized = max(0.0, min((0.84 - landmarks[0].y) / 0.68, 1.0))
+            normalized = max(0.0, min((controller[4] - 0.20) / 1.55, 1.0))
             smooth = normalized * normalized * (3.0 - 2.0 * normalized)
             return GestureEvent(
                 Gesture.VOLUME,
                 0.85,
                 volume=smooth,
-                handedness=handedness,
-                label=f"Volume Mode · {round(smooth * 100)}%",
+                handedness=controller[1],
+                label=f"Pinch Distance · Volume {round(smooth * 100)}%",
             )
 
-        if index_pressed:
-            self._volume_pose_at = None
+        if self._volume_mode:
+            self._volume_mode = False
+            self._reset_pinch()
             self._open_palm_at = None
             self._open_palm_sent = False
-            if handedness == "Right":
-                return GestureEvent(
-                    Gesture.NEXT,
-                    1.0,
-                    handedness=handedness,
-                    label="Right Index Pinch · Next",
-                )
-            if handedness == "Left":
-                return GestureEvent(
-                    Gesture.PREVIOUS,
-                    1.0,
-                    handedness=handedness,
-                    label="Left Index Pinch · Previous",
-                )
+            return GestureEvent(
+                Gesture.VOLUME_SAVE,
+                1.0,
+                label="Volume Set · Peace Sign Released",
+            )
 
-        volume_pose = fingers[0] and fingers[1] and not fingers[2] and not fingers[3]
-        if volume_pose and thumb_index > pinch_off:
-            if self._volume_pose_at is None:
-                self._volume_pose_at = now
+        candidates = [state for state in states if control_hand == "Auto" or state[1] == control_hand]
+        if not candidates:
+            self.reset()
+            return GestureEvent(Gesture.NONE)
+        _points, handedness, _confidence, fingers, thumb_index, _palm_width = max(
+            candidates, key=lambda state: (state[2], state[5])
+        )
+
+        active_threshold = pinch_off if self._pinch_hand == handedness else pinch_on
+        index_pinched = thumb_index <= active_threshold
+        if index_pinched and handedness in {"Left", "Right"}:
             self._open_palm_at = None
             self._open_palm_sent = False
-            if now - self._volume_pose_at >= self.VOLUME_ACTIVATION_DELAY:
-                self._volume_pose_at = None
-                self._volume_mode = True
-                self._save_fist_at = None
+            if self._pinch_hand != handedness or self._pinch_started_at is None:
+                self._pinch_hand = handedness
+                self._pinch_started_at = now
+                self._pinch_fired = False
+            progress = min(1.0, max(0.0, (now - self._pinch_started_at) / self.TRACK_HOLD))
+            action = Gesture.NEXT if handedness == "Right" else Gesture.PREVIOUS
+            action_name = "Next" if action is Gesture.NEXT else "Previous"
+            if self._pinch_fired:
                 return GestureEvent(
-                    Gesture.VOLUME_MODE,
+                    Gesture.NONE,
+                    handedness=handedness,
+                    label=f"{action_name} complete · Release pinch",
+                    progress=1.0,
+                )
+            if progress >= 1.0:
+                self._pinch_fired = True
+                return GestureEvent(
+                    action,
                     1.0,
                     handedness=handedness,
-                    label="Volume Mode On",
+                    label=f"{action_name} Track",
+                    progress=1.0,
                 )
             return GestureEvent(
                 Gesture.NONE,
                 handedness=handedness,
-                label="Hold peace sign for Volume Mode",
+                label=f"Hold for {action_name} · {round(progress * 100)}%",
+                progress=progress,
             )
-        self._volume_pose_at = None
+        self._reset_pinch()
 
         open_palm = all(fingers) and thumb_index > 0.62
         if open_palm:
