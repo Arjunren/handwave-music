@@ -16,6 +16,7 @@ dist/
 *.egg-info/
 logs/
 settings.json
+local_groups.json
 music/*
 !music/.gitkeep
 Thumbs.db

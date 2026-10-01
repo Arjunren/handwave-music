@@ -23,6 +23,7 @@ class AppSettings:
     muted: bool = False
     shuffle: bool = False
     repeat_mode: str = "playlist"
+    spotify_client_id: str = ""
 
     def normalize(self) -> None:
         self.camera_index = max(0, min(int(self.camera_index), 9))
@@ -39,6 +40,7 @@ class AppSettings:
         self.repeat_mode = (
             self.repeat_mode if self.repeat_mode in {"off", "playlist", "track"} else "playlist"
         )
+        self.spotify_client_id = str(self.spotify_client_id or "").strip()[:128]
 
 
 class SettingsStore:

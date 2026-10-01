@@ -4,6 +4,8 @@ Music HandControl is a source-run desktop app. It does not require a server, dat
 
 The optional YouTube import feature requires network access while a requested video is being retrieved. MP3 playback, local file import, gestures, and all other features remain local.
 
+Spotify search is also optional. It uses a browser sign-in and the Spotify Web API only to search catalog metadata and open results in Spotify; it does not download or stream Spotify audio.
+
 ## Supported environment
 
 - 64-bit CPython 3.10–3.14
@@ -42,6 +44,15 @@ The entry point creates `music/`, `assets/`, and `logs/`, loads or defaults `set
 If camera or audio setup fails, the interface remains open and displays a user-facing error. Technical detail is retained in `logs/music-handcontrol.log`.
 
 `imageio-ffmpeg` supplies the FFmpeg executable used by YouTube-to-MP3 conversion, so a separate system FFmpeg install is not required. yt-dlp and YouTube change frequently; if downloads begin failing, validate a newer pinned yt-dlp release in a fresh environment before updating `requirements.txt`.
+
+## Spotify setup
+
+1. Create a Spotify Developer app with the Web API enabled.
+2. Register `http://127.0.0.1` as a redirect URI. Do not use `localhost`; the application uses a temporary port on the loopback IP during sign-in.
+3. Start Music HandControl, choose the **Online · Spotify** tab, select **Connect Spotify**, and paste the app's Client ID.
+4. Complete approval in the browser, then search Tracks, Artists, Albums, or Playlists.
+
+The Client ID is stored in the ignored local settings file. Spotify access tokens are session-only and are not stored in settings or source control.
 
 ## Updating dependencies
 

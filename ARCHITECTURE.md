@@ -17,6 +17,7 @@ CameraWorker thread
 MP3 folder
   → safe scanner / Mutagen
   → immutable Track records
+  → LocalGroupStore (filename-only groups)
   → playlist + AudioPlayer
   → background FFT analyzer
   → playback-position lookup
@@ -31,6 +32,11 @@ MP3 folder
 - `audio_player.py` owns pygame mixer state, timing, seeking, completion behavior, shuffle, and repeat rules.
 - `analyzer.py` computes a bounded 48-band spectral map on a daemon worker. Analysis is skipped for files over 64 MiB to avoid a large in-memory decode; playback continues with the elegant fallback animation. The UI retrieves one frame by current playback position and never blocks on decoding.
 - `importer.py` copies local MP3 files or retrieves one allowlisted YouTube video through yt-dlp. It sanitizes destinations, avoids overwrites, enforces a 512 MiB limit, disables third-party yt-dlp plugins, and delegates MP3 conversion to the bundled FFmpeg binary on a worker thread.
+
+### Library and online catalog
+
+- `library/groups.py` stores named groups as local MP3 filenames only. It rejects non-MP3 items, avoids duplicates, and prunes entries for files that no longer exist; removing a group never touches the music files.
+- `online/spotify_service.py` uses Spotify Authorization Code with PKCE and a short-lived `127.0.0.1` callback to obtain an in-memory catalog-search session. It offers filtered metadata search and Spotify links, but never downloads, converts, or plays Spotify audio.
 
 ### Vision
 
@@ -53,6 +59,7 @@ MP3 folder
 - `camera-worker` owns OpenCV and MediaPipe resources until disabled or the window closes.
 - `audio-analysis` handles decode and FFT without UI access.
 - `music-import` handles local copies, network retrieval, and FFmpeg conversion without UI access.
+- `spotify-auth` waits for the user-approved loopback callback; `spotify-search` performs catalog search without blocking Qt.
 - Qt signals cross the camera thread boundary safely.
 - Closing the window stops and joins the camera worker, closes the mixer, saves settings, and accepts the close event.
 

@@ -3,13 +3,16 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QCloseEvent, QKeyEvent
+from PySide6.QtCore import Qt, QTimer, QUrl
+from PySide6.QtGui import QCloseEvent, QDesktopServices, QKeyEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
@@ -17,6 +20,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSlider,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -26,7 +30,9 @@ from src.audio.audio_player import AudioPlayer
 from src.audio.importer import MusicImporter
 from src.audio.metadata import scan_music
 from src.config.settings import AppSettings, SettingsStore
+from src.library.groups import LocalGroupStore
 from src.models import Gesture, GestureEvent, Track
+from src.online.spotify_service import SpotifyResult, SpotifyService
 from src.ui.add_music_dialog import AddMusicDialog
 from src.ui.artwork import ArtworkWidget
 from src.ui.camera_widget import CameraView
@@ -61,6 +67,11 @@ class MainWindow(QMainWindow):
         self.camera = CameraWorker(project_root)
         self.controller = GestureController(settings.gesture_cooldown)
         self.importer = MusicImporter(project_root / "music")
+        self.group_store = LocalGroupStore(project_root / "local_groups.json")
+        self.spotify = SpotifyService()
+        self._spotify_search_request = 0
+        self._spotify_search_timer = QTimer(self)
+        self._spotify_search_timer.setSingleShot(True)
         self._seeking = False
         self._available_cameras = [settings.camera_index]
         self.setWindowTitle("Music HandControl")
@@ -116,8 +127,8 @@ class MainWindow(QMainWindow):
         content.setSpacing(15)
         root.addLayout(content, 1)
 
-        playlist_card, playlist_layout = self._card()
-        playlist_card.setFixedWidth(270)
+        library_card, library_layout = self._card()
+        library_card.setFixedWidth(300)
         playlist_header_row = QHBoxLayout()
         playlist_header = QLabel("YOUR MUSIC")
         playlist_header.setObjectName("Eyebrow")
@@ -125,18 +136,39 @@ class MainWindow(QMainWindow):
         playlist_header_row.addWidget(playlist_header)
         playlist_header_row.addStretch()
         playlist_header_row.addWidget(self.add_music_button)
-        playlist_layout.addLayout(playlist_header_row)
+        library_layout.addLayout(playlist_header_row)
+
+        self.library_tabs = QTabWidget()
+        library_layout.addWidget(self.library_tabs, 1)
+
+        local_tab = QWidget()
+        local_layout = QVBoxLayout(local_tab)
+        local_layout.setContentsMargins(8, 12, 8, 8)
+        local_layout.setSpacing(8)
+        group_row = QHBoxLayout()
+        self.group_filter = QComboBox()
+        self.group_filter.setToolTip("Show all local tracks or one local group")
+        self.new_group_button = QPushButton("＋")
+        self.new_group_button.setToolTip("Create a local music group")
+        self.delete_group_button = QPushButton("×")
+        self.delete_group_button.setToolTip("Delete the selected local group")
+        group_row.addWidget(self.group_filter, 1)
+        group_row.addWidget(self.new_group_button)
+        group_row.addWidget(self.delete_group_button)
+        local_layout.addLayout(group_row)
         self.playlist_count = QLabel("0 tracks")
         self.playlist_count.setObjectName("Muted")
-        playlist_layout.addWidget(self.playlist_count)
+        local_layout.addWidget(self.playlist_count)
         self.playlist = QListWidget()
         self.playlist.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        playlist_layout.addWidget(self.playlist, 1)
+        local_layout.addWidget(self.playlist, 1)
         self.empty_message = QLabel("No music found.\n\nAdd MP3 files inside\nthe /music folder.")
         self.empty_message.setObjectName("Empty")
         self.empty_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_message.setWordWrap(True)
-        playlist_layout.addWidget(self.empty_message)
+        local_layout.addWidget(self.empty_message)
+        self.add_to_group_button = QPushButton("Add selected to group")
+        local_layout.addWidget(self.add_to_group_button)
         self.import_status = QLabel("")
         self.import_status.setObjectName("Muted")
         self.import_status.setWordWrap(True)
@@ -144,9 +176,44 @@ class MainWindow(QMainWindow):
         self.import_progress = QProgressBar()
         self.import_progress.setRange(0, 100)
         self.import_progress.hide()
-        playlist_layout.addWidget(self.import_status)
-        playlist_layout.addWidget(self.import_progress)
-        content.addWidget(playlist_card)
+        local_layout.addWidget(self.import_status)
+        local_layout.addWidget(self.import_progress)
+        self.library_tabs.addTab(local_tab, "Local")
+
+        online_tab = QWidget()
+        online_layout = QVBoxLayout(online_tab)
+        online_layout.setContentsMargins(8, 12, 8, 8)
+        online_layout.setSpacing(8)
+        self.spotify_connect_button = QPushButton("Connect Spotify")
+        self.spotify_status = QLabel("Connect your Spotify app to search the catalog.")
+        self.spotify_status.setObjectName("Muted")
+        self.spotify_status.setWordWrap(True)
+        self.spotify_search = QLineEdit()
+        self.spotify_search.setPlaceholderText("Search Spotify…")
+        self.spotify_search.setEnabled(False)
+        self.spotify_filter = QComboBox()
+        self.spotify_filter.addItem("Tracks", "track")
+        self.spotify_filter.addItem("Artists", "artist")
+        self.spotify_filter.addItem("Albums", "album")
+        self.spotify_filter.addItem("Playlists", "playlist")
+        self.spotify_filter.setEnabled(False)
+        self.spotify_results = QListWidget()
+        self.spotify_results.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.spotify_results.setEnabled(False)
+        self.spotify_open_button = QPushButton("Open selected in Spotify ↗")
+        self.spotify_open_button.setEnabled(False)
+        spotify_attribution = QLabel("Spotify catalog search · Opens results in Spotify")
+        spotify_attribution.setObjectName("Muted")
+        spotify_attribution.setWordWrap(True)
+        online_layout.addWidget(self.spotify_connect_button)
+        online_layout.addWidget(self.spotify_status)
+        online_layout.addWidget(self.spotify_search)
+        online_layout.addWidget(self.spotify_filter)
+        online_layout.addWidget(self.spotify_results, 1)
+        online_layout.addWidget(self.spotify_open_button)
+        online_layout.addWidget(spotify_attribution)
+        self.library_tabs.addTab(online_tab, "Online · Spotify")
+        content.addWidget(library_card)
 
         middle = QVBoxLayout()
         middle.setSpacing(15)
@@ -283,7 +350,7 @@ class MainWindow(QMainWindow):
         self.overlay.hide()
 
     def _connect(self) -> None:
-        self.playlist.itemClicked.connect(lambda item: self.player.play_index(self.playlist.row(item)))
+        self.playlist.itemClicked.connect(self._play_local_item)
         self.play_button.clicked.connect(self.player.toggle)
         self.previous_button.clicked.connect(self.player.previous)
         self.next_button.clicked.connect(self.player.next)
@@ -296,6 +363,17 @@ class MainWindow(QMainWindow):
         self.camera_toggle.toggled.connect(self._toggle_camera)
         self.settings_button.clicked.connect(self._show_settings)
         self.add_music_button.clicked.connect(self._show_add_music)
+        self.group_filter.currentTextChanged.connect(lambda _value: self._populate_playlist())
+        self.new_group_button.clicked.connect(self._create_group)
+        self.delete_group_button.clicked.connect(self._delete_selected_group)
+        self.add_to_group_button.clicked.connect(self._add_selected_track_to_group)
+        self.spotify_connect_button.clicked.connect(self._connect_spotify)
+        self.spotify_search.textChanged.connect(self._schedule_spotify_search)
+        self.spotify_filter.currentIndexChanged.connect(self._schedule_spotify_search)
+        self.spotify_results.itemSelectionChanged.connect(self._spotify_selection_changed)
+        self.spotify_results.itemDoubleClicked.connect(lambda _item: self._open_selected_spotify())
+        self.spotify_open_button.clicked.connect(self._open_selected_spotify)
+        self._spotify_search_timer.timeout.connect(self._run_spotify_search)
         self.player.on_track_changed = self._track_changed
         self.player.on_state_changed = self._play_state_changed
         self.player.on_error = self._show_error
@@ -307,6 +385,11 @@ class MainWindow(QMainWindow):
         self.importer.progress.connect(self._import_progress_changed)
         self.importer.completed.connect(self._import_completed)
         self.importer.failed.connect(self._import_failed)
+        self.spotify.authorization_requested.connect(self._open_spotify_authorization)
+        self.spotify.connected.connect(self._spotify_connected)
+        self.spotify.connection_failed.connect(self._spotify_connection_failed)
+        self.spotify.results_ready.connect(self._spotify_results_ready)
+        self.spotify.search_failed.connect(self._spotify_search_failed)
         if not self.player.available:
             QTimer.singleShot(
                 0, lambda: self._show_error(self.player.initialization_error or "Audio is unavailable")
@@ -324,14 +407,183 @@ class MainWindow(QMainWindow):
         self.overlay_timer.timeout.connect(self.overlay.hide)
 
     def _populate_playlist(self) -> None:
+        self.group_store.prune({track.path.name for track in self.tracks})
+        selected_group = str(self.group_filter.currentData() or "")
+        self.group_filter.blockSignals(True)
+        self.group_filter.clear()
+        self.group_filter.addItem("All local music", "")
+        for name in self.group_store.names:
+            self.group_filter.addItem(name, name)
+        selected_index = self.group_filter.findData(selected_group)
+        self.group_filter.setCurrentIndex(max(0, selected_index))
+        self.group_filter.blockSignals(False)
+        selected_group = str(self.group_filter.currentData() or "")
+        grouped_tracks = self.group_store.tracks_for(selected_group)
+        visible_tracks = [
+            (index, track)
+            for index, track in enumerate(self.tracks)
+            if not selected_group or track.path.name in grouped_tracks
+        ]
         self.playlist.clear()
-        for number, track in enumerate(self.tracks, 1):
+        for number, (track_index, track) in enumerate(visible_tracks, 1):
             item = QListWidgetItem(f"{number:02d}   {track.display_title}\n       {track.artist}")
             item.setToolTip(track.path.name)
+            item.setData(Qt.ItemDataRole.UserRole, track_index)
             self.playlist.addItem(item)
-        self.playlist_count.setText(f"{len(self.tracks)} track{'s' if len(self.tracks) != 1 else ''}")
-        self.empty_message.setVisible(not self.tracks)
-        self.playlist.setVisible(bool(self.tracks))
+        count = len(visible_tracks)
+        if selected_group:
+            self.playlist_count.setText(f"{count} track{'s' if count != 1 else ''} in {selected_group}")
+        else:
+            self.playlist_count.setText(f"{count} local track{'s' if count != 1 else ''}")
+        self.empty_message.setText(
+            "No tracks in this group."
+            if selected_group
+            else "No music found.\n\nAdd MP3 files inside\nthe /music folder."
+        )
+        self.empty_message.setVisible(not visible_tracks)
+        self.playlist.setVisible(bool(visible_tracks))
+        self.delete_group_button.setEnabled(bool(selected_group))
+        self.add_to_group_button.setEnabled(bool(self.tracks))
+
+    def _play_local_item(self, item: QListWidgetItem) -> None:
+        track_index = item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(track_index, int):
+            self.player.play_index(track_index)
+
+    def _create_group(self) -> None:
+        name, accepted = QInputDialog.getText(self, "Create Local Group", "Group name:")
+        if not accepted:
+            return
+        try:
+            created = self.group_store.create(name)
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        self.group_filter.blockSignals(True)
+        self.group_filter.addItem(created, created)
+        self.group_filter.setCurrentIndex(self.group_filter.findData(created))
+        self.group_filter.blockSignals(False)
+        self._populate_playlist()
+
+    def _delete_selected_group(self) -> None:
+        name = str(self.group_filter.currentData() or "")
+        if not name:
+            return
+        response = QMessageBox.question(
+            self,
+            "Delete Local Group",
+            f"Delete the group '{name}'? Your MP3 files will not be removed.",
+        )
+        if response is QMessageBox.StandardButton.Yes:
+            self.group_store.delete(name)
+            self._populate_playlist()
+
+    def _add_selected_track_to_group(self) -> None:
+        item = self.playlist.currentItem()
+        if item is None:
+            self._feedback("SELECT A LOCAL TRACK FIRST", 1200)
+            return
+        track_index = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(track_index, int) or not (0 <= track_index < len(self.tracks)):
+            return
+        if not self.group_store.names:
+            self._feedback("CREATE A LOCAL GROUP FIRST", 1200)
+            return
+        name, accepted = QInputDialog.getItem(
+            self, "Add to Local Group", "Add selected track to:", self.group_store.names, 0, False
+        )
+        if not accepted:
+            return
+        try:
+            self.group_store.add_track(name, self.tracks[track_index].path.name)
+        except ValueError as exc:
+            self._show_error(str(exc))
+            return
+        self._feedback(f"✓  ADDED TO {name.upper()}", 1100)
+        self._populate_playlist()
+
+    def _connect_spotify(self) -> None:
+        client_id, accepted = QInputDialog.getText(
+            self,
+            "Connect Spotify",
+            "Spotify Client ID:\n\n"
+            "Create a Web API app in Spotify for Developers and register http://127.0.0.1 as its redirect URI. "
+            "The Client ID is safe to save; Spotify tokens stay only in this app session.",
+            text=self.settings.spotify_client_id,
+        )
+        if not accepted:
+            return
+        self.settings.spotify_client_id = client_id.strip()
+        self.spotify_connect_button.setEnabled(False)
+        self.spotify_status.setText("Preparing secure Spotify sign-in…")
+        self.spotify.connect(self.settings.spotify_client_id)
+
+    def _open_spotify_authorization(self, url: str) -> None:
+        self.spotify_status.setText("Finish Spotify sign-in in your browser…")
+        if not QDesktopServices.openUrl(QUrl(url)):
+            self._spotify_connection_failed("Could not open your browser for Spotify sign-in.")
+
+    def _spotify_connected(self) -> None:
+        self.spotify_connect_button.setText("Spotify Connected")
+        self.spotify_connect_button.setEnabled(False)
+        self.spotify_search.setEnabled(True)
+        self.spotify_filter.setEnabled(True)
+        self.spotify_results.setEnabled(True)
+        self.spotify_status.setText("Connected. Search Spotify tracks, artists, albums, or playlists.")
+        self.spotify_search.setFocus()
+
+    def _spotify_connection_failed(self, message: str) -> None:
+        self.spotify_connect_button.setEnabled(True)
+        self.spotify_status.setText(f"Spotify connection unavailable: {message}")
+
+    def _schedule_spotify_search(self) -> None:
+        if not self.spotify.connected_to_spotify:
+            return
+        self._spotify_search_timer.start(350)
+
+    def _run_spotify_search(self) -> None:
+        query = self.spotify_search.text().strip()
+        if len(query) < 2:
+            self.spotify_results.clear()
+            self.spotify_open_button.setEnabled(False)
+            self.spotify_status.setText("Type at least two characters to search Spotify.")
+            return
+        self._spotify_search_request += 1
+        self.spotify_results.clear()
+        self.spotify_open_button.setEnabled(False)
+        self.spotify_status.setText("Searching Spotify…")
+        kind = str(self.spotify_filter.currentData() or "track")
+        self.spotify.search(query, kind, self._spotify_search_request)
+
+    def _spotify_results_ready(self, request_id: int, results: object) -> None:
+        if request_id != self._spotify_search_request:
+            return
+        self.spotify_results.clear()
+        for result in results if isinstance(results, list) else []:
+            if not isinstance(result, SpotifyResult):
+                continue
+            item = QListWidgetItem(f"{result.name}\n       {result.subtitle}")
+            item.setData(Qt.ItemDataRole.UserRole, result)
+            self.spotify_results.addItem(item)
+        total = self.spotify_results.count()
+        self.spotify_status.setText(
+            f"{total} Spotify result{'s' if total != 1 else ''}. Double-click to open in Spotify."
+        )
+
+    def _spotify_search_failed(self, request_id: int, message: str) -> None:
+        if request_id == self._spotify_search_request:
+            self.spotify_status.setText(f"Spotify search unavailable: {message}")
+
+    def _spotify_selection_changed(self) -> None:
+        item = self.spotify_results.currentItem()
+        result = item.data(Qt.ItemDataRole.UserRole) if item else None
+        self.spotify_open_button.setEnabled(isinstance(result, SpotifyResult) and bool(result.url))
+
+    def _open_selected_spotify(self) -> None:
+        item = self.spotify_results.currentItem()
+        result = item.data(Qt.ItemDataRole.UserRole) if item else None
+        if isinstance(result, SpotifyResult) and result.url:
+            QDesktopServices.openUrl(QUrl(result.url))
 
     def _show_add_music(self) -> None:
         if self.importer.busy:
@@ -474,7 +726,10 @@ class MainWindow(QMainWindow):
         self.album.setText(track.album)
         self.artwork.set_artwork(track.artwork)
         self.total.setText(format_time(track.duration))
-        self.playlist.setCurrentRow(self.player.index)
+        for row in range(self.playlist.count()):
+            if self.playlist.item(row).data(Qt.ItemDataRole.UserRole) == self.player.index:
+                self.playlist.setCurrentRow(row)
+                break
         self.analyzer.analyze_async(track.path, track.duration)
 
     def _play_state_changed(self, playing: bool) -> None:

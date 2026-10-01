@@ -1,8 +1,8 @@
 # Music HandControl
 
-Music HandControl is a polished desktop MP3 player controlled by hand gestures, mouse, or keyboard. It combines a responsive PySide6 interface, MediaPipe hand tracking, pygame-ce playback, embedded metadata/artwork, and three playback-synchronized visualizer modes.
+Music HandControl is a polished desktop MP3 player controlled by hand gestures, mouse, or keyboard. It combines a responsive PySide6 interface, MediaPipe hand tracking, pygame-ce playback, embedded metadata/artwork, Spotify catalog search, and three playback-synchronized visualizer modes.
 
-> The app is local-first: it does not upload camera frames, music, metadata, or settings.
+> The app is local-first: it does not upload camera frames, local music, local metadata, or settings. Spotify search and YouTube import are optional online features.
 
 ## Highlights
 
@@ -10,6 +10,9 @@ Music HandControl is a polished desktop MP3 player controlled by hand gestures, 
 - Two-second right thumb–index hold for next and left thumb–index hold for previous, with visible loading progress
 - Two-hand volume control: keep one hand in a peace sign and change the other hand's thumb–index distance
 - Add local MP3 files or download and convert one YouTube video with an optional filename
+- Separate **Local** and **Online · Spotify** library tabs
+- Local-only named groups for uploaded and converted MP3 files
+- Dynamic Spotify catalog search with track, artist, album, and playlist filters
 - Threaded webcam capture and hand analysis, keeping the interface responsive
 - Spectrum, wave, and circular visualizers with rise/fall interpolation
 - MP3 metadata, duration, and embedded cover artwork via Mutagen
@@ -68,6 +71,23 @@ No music found.
 
 Add MP3 files inside the /music folder.
 ```
+
+## Local groups
+
+The **Local** tab contains uploaded files and YouTube-converted MP3s only. Create a group with **＋**, choose it from the group menu to filter the library, then select a track and choose **Add selected to group**. Deleting a group removes only that grouping; it never deletes your MP3 files.
+
+Groups are saved locally in the ignored `local_groups.json` file. Spotify items cannot be added to local groups.
+
+## Spotify search
+
+The **Online · Spotify** tab searches Spotify's catalog and opens the chosen item in Spotify. It does not stream, download, or convert Spotify audio.
+
+1. Create a Spotify Developer Web API app and copy its Client ID.
+2. In that app’s Redirect URIs, add `http://127.0.0.1` exactly (without `localhost`; Spotify permits the app to use a temporary local port).
+3. Select **Connect Spotify** in Music HandControl, paste the Client ID, and approve the browser sign-in.
+4. Search with at least two characters and use the filter for Tracks, Artists, Albums, or Playlists.
+
+The Client ID is stored only in the local ignored settings file. Spotify access tokens remain in memory for the current app session and are never committed to Git. Spotify results always include an **Open selected in Spotify** action and link back to Spotify.
 
 ## Gestures
 
@@ -159,6 +179,7 @@ Settings are saved to the ignored `settings.json` file when the app closes.
 - **Mutagen** — MP3 metadata and embedded artwork
 - **yt-dlp** — single-video YouTube audio retrieval
 - **imageio-ffmpeg** — bundled FFmpeg binary for MP3 conversion
+- **Spotify Web API** — user-authorized catalog search and Spotify deep links
 
 ## Project structure
 
@@ -170,6 +191,8 @@ handwave-music/
 ├── src/
 │   ├── audio/             # playback, metadata, import/download, FFT analysis
 │   ├── config/            # JSON settings
+│   ├── library/            # local-only music group storage
+│   ├── online/             # Spotify PKCE search session
 │   ├── ui/                # window, camera, artwork, visualizer
 │   ├── vision/            # tracking, gestures, debounce controller
 │   └── utils/             # rotating logs
